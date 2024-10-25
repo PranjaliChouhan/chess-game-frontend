@@ -1,25 +1,82 @@
-import logo from './logo.svg';
-import './App.css';
+import { useEffect, useState, useCallback } from "react";
+import Container from "@mui/material/Container";
+import Game from "./components/Game";
+import InitGame from "./components/InitGame";
+import CustomDialog from "./components/CustomDialog";
+import socket from "./socket";
 
-function App() {
+
+import { TextField } from "@mui/material";
+
+export default function App() {
+  const [username, setUsername] = useState("");
+  const [usernameSubmitted, setUsernameSubmitted] = useState(false);
+
+  const [room, setRoom] = useState("");
+  const [orientation, setOrientation] = useState("");
+  const [players, setPlayers] = useState([]);
+
+  // resets the states responsible for initializing a game
+  const cleanup = useCallback(() => {
+    setRoom("");
+    setOrientation("");
+    setPlayers("");
+  }, []);
+
+  useEffect(() => {
+    // const username = prompt("Username");
+    // setUsername(username);
+    // socket.emit("username", username);
+
+    socket.on("opponentJoined", (roomData) => {
+      console.log("roomData", roomData)
+      setPlayers(roomData.players);
+    });
+  }, []);
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Container>
+      <CustomDialog
+        open={!usernameSubmitted}
+        handleClose={() => setUsernameSubmitted(true)}
+        title="Pick a username"
+        contentText="Please select a username"
+        handleContinue={() => {
+          if (!username) return;
+          socket.emit("username", username);
+          setUsernameSubmitted(true);
+        }}
+      >
+        <TextField
+          autoFocus
+          margin="dense"
+          id="username"
+          label="Username"
+          name="username"
+          value={username}
+          required
+          onChange={(e) => setUsername(e.target.value)}
+          type="text"
+          fullWidth
+          variant="standard"
+        />
+      </CustomDialog>
+      {room ? (
+        <Game
+          room={room}
+          orientation={orientation}
+          username={username}
+          players={players}
+          // the cleanup function will be used by Game to reset the state when a game is over
+          cleanup={cleanup}
+        />
+      ) : (
+        <InitGame
+          setRoom={setRoom}
+          setOrientation={setOrientation}
+          setPlayers={setPlayers}
+        />
+      )}
+    </Container>
   );
 }
-
-export default App;

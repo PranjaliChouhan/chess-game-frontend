@@ -4,34 +4,44 @@ import Game from "./components/Game";
 import InitGame from "./components/InitGame";
 import CustomDialog from "./components/CustomDialog";
 import socket from "./socket";
-
-
 import { TextField } from "@mui/material";
 
 export default function App() {
   const [username, setUsername] = useState("");
   const [usernameSubmitted, setUsernameSubmitted] = useState(false);
-
   const [room, setRoom] = useState("");
   const [orientation, setOrientation] = useState("");
   const [players, setPlayers] = useState([]);
 
-  // resets the states responsible for initializing a game
   const cleanup = useCallback(() => {
     setRoom("");
     setOrientation("");
-    setPlayers("");
+    setPlayers([]);
   }, []);
 
   useEffect(() => {
-    // const username = prompt("Username");
-    // setUsername(username);
-    // socket.emit("username", username);
-
     socket.on("opponentJoined", (roomData) => {
-      console.log("roomData", roomData)
       setPlayers(roomData.players);
     });
+
+    return () => {
+      socket.off("opponentJoined");
+    };
+  }, []);
+
+  useEffect(() => {
+    const tg = window?.Telegram?.WebApp;
+
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      tg.MainButton.setText("Send Data");
+      tg.MainButton.show();
+
+      tg.MainButton.onClick(() => {
+        tg.sendData("Some data to send back to bot");
+      });
+    }
   }, []);
 
   return (
@@ -42,7 +52,7 @@ export default function App() {
         title="Pick a username"
         contentText="Please select a username"
         handleContinue={() => {
-          if (!username) return;
+          if (!username.trim()) return;
           socket.emit("username", username);
           setUsernameSubmitted(true);
         }}
@@ -67,7 +77,6 @@ export default function App() {
           orientation={orientation}
           username={username}
           players={players}
-          // the cleanup function will be used by Game to reset the state when a game is over
           cleanup={cleanup}
         />
       ) : (

@@ -19,12 +19,17 @@ export default function Game({ players, room, orientation, cleanup }) {
   const chess = useMemo(() => new Chess(), []); // <- 1
   const [fen, setFen] = useState(chess.fen()); // <- 2
   const [over, setOver] = useState("");
+  const [turn, setTurn] = useState("white"); // State to track turn
+  const [timer, setTimer] = useState(20); // Timer state
+
 
   const makeAMove = useCallback(
     (move) => {
       try {
         const result = chess.move(move); // update Chess instance
         setFen(chess.fen()); // update fen state to trigger a re-render
+        setTurn(chess.turn() === "w" ? "white" : "black"); // Update turn
+
 
         console.log("over, checkmate", chess.isGameOver(), chess.isCheckmate());
 
@@ -93,9 +98,32 @@ export default function Game({ players, room, orientation, cleanup }) {
       move,
       room,
     }); // this event will be transmitted to the opponent via the server
-
+    resetTimer();
     return true;
   }
+
+  useEffect(() => {
+    if (over) return; // Stop timer if game is over
+
+    // Countdown logic
+    const timerId = setInterval(() => {
+      setTimer((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerId);
+          setOver(`Time's up! ${turn === "white" ? "Black" : "White"} wins!`);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timerId); // Clear timer on unmount
+  }, [turn, over]);
+
+  // Reset timer to 20 seconds after a move
+  const resetTimer = () => {
+    setTimer(20);
+  };
   // Game component returned jsx
   return (
     <Stack>
@@ -132,12 +160,17 @@ export default function Game({ players, room, orientation, cleanup }) {
           </Box>
         )}
       </Stack>
+      <Stack>
+      <h2>Current Turn: {turn}</h2>
+      <h3>Time Left: {timer} seconds</h3>
+      </Stack>
       <CustomDialog // Game Over CustomDialog
         open={Boolean(over)}
         title={over}
         contentText={over}
         handleContinue={() => {
           socket.emit("closeRoom", { roomId: room });
+          setOver("");
           cleanup();
         }}
       />
